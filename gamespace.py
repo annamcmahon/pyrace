@@ -4,9 +4,10 @@ import pygame
 from pygame.locals import *
 import math
 import random
+import parallax
 
-BOARD_WIDTH = 500
-BOARD_HEIGHT = 500
+BOARD_WIDTH = 512
+BOARD_HEIGHT = 512
 
 class PowerUp(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
@@ -22,10 +23,7 @@ class PowerUp(pygame.sprite.Sprite):
 		self.centerx =  random.randrange(0,BOARD_WIDTH)
 		self.centery=  random.randrange(0,BOARD_HEIGHT)
 		self.rect.center = (self.centerx, self.centery)
-#		self.control= 0
 	def tick(self):
-#		self.control +=1;
-#		if self.control%2==0:
 		if self.counter > 5:
 			self.counter=0
 		self.image = pygame.image.load(self.images[self.counter])
@@ -76,6 +74,12 @@ class GameSpace:
 		self.size = self.width, self.height = BOARD_WIDTH, BOARD_HEIGHT
 		self.black = 0, 0, 0
 		self.screen = pygame.display.set_mode(self.size)
+		screen = pygame.display.set_mode((512, 512), pygame.DOUBLEBUF)
+		bg = parallax.ParallaxSurface((512, 512), pygame.RLEACCEL)
+		bg.add('media/tunnel_road.jpg', 1)
+		orientation = 'vertical'
+		speed=0
+
 		self.powerups = []
 		# 2) set up game objects
 		self.clock = pygame.time.Clock()
@@ -98,11 +102,13 @@ class GameSpace:
 				p.tick()
 			# 7) and finally, display the game objects
 			self.screen.fill(self.black)
-			self.screen.blit(self.racer.image, self.racer.rect)
-			#self.screen.blit(self.powerup.image, self.powerup.rect)
+			speed += 2
+			bg.scroll(speed, orientation)
+			speed -= 2
+			bg.draw(screen)
 			for p in self.powerups:
 				self.screen.blit(p.image, p.rect)
-			
+			self.screen.blit(self.racer.image, self.racer.rect)
 			pygame.display.flip()
 
 
