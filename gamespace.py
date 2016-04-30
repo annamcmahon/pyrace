@@ -25,7 +25,7 @@ class PowerUp(pygame.sprite.Sprite):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
 		self.images = []
-		self.player = self.gs.racer #this will be the racer
+		#self.player = self.gs.racer #this will be the racer
 		self.counter = random.randrange(0,6) # starts at a random coin position
 		for n in range(1, 7):
 			imagename = "media/Coins/coin" + str(n) +".png"
@@ -47,20 +47,23 @@ class PowerUp(pygame.sprite.Sprite):
 		self.counter +=1
 
 class Racer(pygame.sprite.Sprite):
-	def __init__(self, gs=None):
+	def __init__(self,  x, y, gs=None):
+		print "making racer init: ", x, " ", y
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
 		self.crash = None 
 		#maybe add a variable self.canMove = true then crash set to false?
 		self.image = pygame.image.load("media/cars/blue.png")
 		self.rect = self.image.get_rect()
-		self.centerx = 200
-		self.centery = 200
+		self.centerx = x
+		self.centery = y
+		
 		self.rect.center = (self.centerx, self.centery)
 		# keep original image to limit resize errors
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
 		self.power = 0
+		
 	
 	def tick(self):
 		self.rect = self.image.get_rect()
@@ -70,8 +73,9 @@ class Racer(pygame.sprite.Sprite):
 			#del self.gs.powerups[idx]
 			#print self.gs.powerups[idx].centerx,self.gs.powerups[idx].centery
 			#print self.centerx, self.centery
-			del self.gs.powerups[idx]
-			self.power +=1;
+			#del self.gs.powerups[idx]
+			#self.power +=1;
+			pass
 		for idx in self.rect.collidelistall(self.gs.obstacles):
 			#print self.gs.powerups[idx].centerx,self.gs.powerups[idx].centery
 			#print self.centerx, self.centery
@@ -103,13 +107,12 @@ class Crash(pygame.sprite.Sprite): #could change this to on crash, decrease the 
 		self.rect = self.image.get_rect()
 		self.rect.center = ((BOARD_HEIGHT / 2), (BOARD_WIDTH / 2))
 
-
 class Score(pygame.sprite.Sprite): #display how many coins have been retrieved
 	def __init__(self,gs = None):
 		self.player = gs.racer
 		self.gs = gs
 		self.font = pygame.font.Font(None, 30)
-		self.text = str(self.player.power)
+		self.text = "Score: " + str(self.player.power)
 		self.image = self.font.render(self.text,1,(0,255,0))
 		self.rect = self.image.get_rect()
 		self.rect.center = self.player.rect.center
@@ -153,15 +156,27 @@ class GameSpace:
 		self.winner = False
 		self.ready= False
 		self.powerups = []
+		self.obstacles = [] #for avoiding things
+		for i in range (0,10):
+			self.obstacles.append(Obstacle(self))
+			
+
 		# 2) set up game objects
 		self.clock = pygame.time.Clock()
-		self.racer = Racer(self)
+		
 		self.showStartMenu=False
 		self.showPlayGame= True
 		self.showEndMenu=False
 		self.showPauseMenu=False
 		for c in range(0, 10):
 			self.powerups.append(PowerUp(self))
+	def makeRacer(self, x, y):
+		print "making racer: ", x," ", y
+		racer = Racer(x, y, self)
+		return racer
+		#score = Score(self) #to update the score
+		
+
 	def main(self):
 		if self.showStartMenu:
 			self.startMenu()
@@ -169,7 +184,16 @@ class GameSpace:
 			self.playGame()
 	
 	def startMenu(self):
-		pass
+		colors = ["blue", "red", "green"]
+		xpos= 200
+		ypos= 100
+		for c in colors:
+			carstr = "media/cars/" + c +".png"
+ 			car = pygame.image.load(carstr)
+			rect = car.get_rect()
+			ypos +=100
+			centerx = x
+			centery = y
 	def playGame(self):
 	
 		for event in pygame.event.get():
@@ -178,13 +202,16 @@ class GameSpace:
 					reactor.stop()		
 				self.racer.move(event.key)
 				print "key down"
-				connections['data'].sendLine('key\t' + str(pygame.K_LEFT)) #event.key))
+				connections['data'].sendLine('key\t' + str(event.key)) #event.key))
 
 		# 6) send a tick to every game object
 		self.racer.tick()
 		self.racer2.tick()
 		for p in self.powerups:
 			p.tick()
+		for o in self.obstacles:
+			o.tick()
+		#self.score.tick()
 		# 7) and finally, display the game objects
 		self.screen.fill(self.black)
 		self.speed += 2
@@ -195,6 +222,11 @@ class GameSpace:
 			self.screen.blit(p.image, p.rect)
 		self.screen.blit(self.racer.image, self.racer.rect)
 		self.screen.blit(self.racer2.image, self.racer2.rect)
+#		self.screen.blit(self.score.image, self.score)
+		for o in self.obstacles:
+			self.screen.blit(o.image, o.rect)
+		if(self.racer.crash != None):
+			self.screen.blit(self.racer.crash.image, self.racer.crash)	
 		pygame.display.flip()
 
 	def endMenu(self):
@@ -204,12 +236,21 @@ class GameSpace:
 
 
 class PlayerConnection(LineReceiver):
+	def __init__(self, isHost):
+		self.isHost= isHost
 	def connectionMade(self):
 		print "connection made "
 		self.setLineMode()
 		connections['data'] = self
 		self.gs = GameSpace()
-		self.gs.racer2 = Racer(self.gs)
+		self.gs.isHost = self.isHost
+		if self.gs.isHost:
+			self.gs.racer = self.gs.makeRacer(200, 400)
+			self.gs.racer2= self.gs.makeRacer(400, 400)
+		else:
+			self.gs.racer = self.gs.makeRacer(400, 400)
+			self.gs.racer2= self.gs.makeRacer(200,400)
+
 		lc = LoopingCall( self.gs.main )
 		lc.start( 1 / 60)
 	def lineReceived(self, line): # line received
@@ -234,63 +275,23 @@ class PlayerConnection(LineReceiver):
 		reactor.stop()
 		print reason
 class PlayerConnectionFactory( ReconnectingClientFactory ):
+	def __init__(self, isHost):
+		self.isHost= isHost
 	def buildProtocol( self, address ):
-		return PlayerConnection()
-		self.score = Score(self) #to update the score	
-	
-		#self.powerup = PowerUp(self,self.racer)#pass in racer to compare locations
-		for c in range(0, 10):
-			self.powerups.append(PowerUp(self))
-
-		self.obstacles = [] #for avoiding things
-		for i in range (0,10):
-			self.obstacles.append(Obstacle(self))
-
-		# 3) start game loop
-		while 1:
-			# 4) clock tick regulation (framerate)
-			self.clock.tick(60)
-			# 5) this is where you would handle user inputs...
-			for event in pygame.event.get():
-				if event.type == pygame.QUIT:
-					sys.exit(0) #end the game
-				elif event.type == pygame.KEYDOWN :
-					self.racer.move(event.key)
-			# 6) send a tick to every game object
-			self.racer.tick()
-			self.score.tick()
-			for p in self.powerups:
-				p.tick()
-			for o in self.obstacles:
-				o.tick()
-			# 7) and finally, display the game objects
+		return PlayerConnection(self.isHost)
 		
-			self.screen.fill(self.black)
-			speed += 2
-			bg.scroll(speed, orientation)
-			speed -= 2
-			bg.draw(screen)
-			for p in self.powerups:
-				self.screen.blit(p.image, p.rect)
-			self.screen.blit(self.racer.image, self.racer.rect)
-			self.screen.blit(self.score.image, self.score)
-		        for o in self.obstacles:
-				self.screen.blit(o.image, o.rect)
-			if(self.racer.crash != None):
-				self.screen.blit(self.racer.crash.image, self.racer.crash)	
-			pygame.display.flip()
-
-
+	
 if __name__ == '__main__':
 	isHost = False
 	connections = {}
 	if sys.argv[1] == 'host': # star host connection
 		isHost = True
-		reactor.listenTCP(int(sys.argv[2]), PlayerConnectionFactory())
+		reactor.listenTCP(int(sys.argv[2]), PlayerConnectionFactory(isHost))
 		reactor.run()
 	
 	elif sys.argv[1] == 'join': # join the other connection
-		reactor.connectTCP('localhost', int(sys.argv[2]), PlayerConnectionFactory())
+		isHost = False
+		reactor.connectTCP('localhost', int(sys.argv[2]), PlayerConnectionFactory(isHost))
 		reactor.run()
 
 	else:
