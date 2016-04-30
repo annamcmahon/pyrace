@@ -26,10 +26,10 @@ class PowerUp(pygame.sprite.Sprite):
 		self.centerx =  random.randrange(0,BOARD_WIDTH)
 		self.centery=  random.randrange(0,BOARD_HEIGHT)
 		#this all needs to be changed vvv
-		#if (len(self.player.rect.collidelistall([self.rect])) != 0):
+		#while (len(self.player.rect.collidelistall([self.rect])) != 0):
 		#	print "hi" #if you use a while this creates a seemingly infinite loop
-		#	self.centerx = random.randrange(400,BOARD_WIDTH)
-		#	self.centery = random.randrange(400, BOARD_HEIGHT)
+		#	self.centerx = random.randrange(0,BOARD_WIDTH)
+		#	self.centery = random.randrange(0, BOARD_HEIGHT)
 		self.rect.center = (self.centerx, self.centery)
 	def tick(self):
 		if self.counter > 5:
@@ -99,7 +99,7 @@ class Score(pygame.sprite.Sprite): #display how many coins have been retrieved
 		self.player = gs.racer
 		self.gs = gs
 		self.font = pygame.font.Font(None, 30)
-		self.text = str(self.player.power)
+		self.text = "Score: " + str(self.player.power)
 		self.image = self.font.render(self.text,1,(0,255,0))
 		self.rect = self.image.get_rect()
 		self.rect.center = self.player.rect.center
