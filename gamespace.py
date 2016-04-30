@@ -47,17 +47,19 @@ class PowerUp(pygame.sprite.Sprite):
 		self.counter +=1
 
 class Racer(pygame.sprite.Sprite):
-	def __init__(self,  x, y, gs=None):
+	def __init__(self,  x, y, color, gs=None):
 		print "making racer init: ", x, " ", y
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
 		self.crash = None 
 		#maybe add a variable self.canMove = true then crash set to false?
-		self.image = pygame.image.load("media/cars/blue.png")
+		
+		imagename = "media/cars/" + color +".png"
+		self.image = pygame.image.load(imagename)
 		self.rect = self.image.get_rect()
 		self.centerx = x
 		self.centery = y
-		
+
 		self.rect.center = (self.centerx, self.centery)
 		# keep original image to limit resize errors
 		self.orig_image = self.image
@@ -140,7 +142,28 @@ class Obstacle(pygame.sprite.Sprite):
 		self.centery += self.speed		
 		self.rect.center = (self.centerx, self.centery)
 	
-	
+class StartMenuRacer(pygame.sprite.Sprite):
+	def __init__(self,  x, y, color, gs=None):
+		self.color = color
+		carstr = "media/cars/" + color +".png"
+ 		self.carimage = pygame.image.load(carstr)
+		self.carimage = pygame.transform.scale(self.carimage, (75,150))
+		self.rect = self.carimage.get_rect()
+		self.x = x
+		self.y=y
+		self.rect.center = (x, y)	
+class waiting(pygame.sprite.Sprite):
+	def __init__(self, gs=None):
+		pygame.sprite.Sprite.__init__(self)
+		self.waitexitimage  = pygame.image.load("media/texts/waiting.png")	
+		self.rect= self.waitexitimage.get_rect()
+		self.rect.center= (BOARD_WIDTH/2, BOARD_HEIGHT-7 )
+		
+		#draw three circles
+	def tick(self):
+		pass
+
+
 class GameSpace:
 	def __init__(self):
 		# 1) basic initialization
@@ -159,43 +182,99 @@ class GameSpace:
 		self.obstacles = [] #for avoiding things
 		for i in range (0,10):
 			self.obstacles.append(Obstacle(self))
-			
+
+		self.racerselected = False
+		self.otherracerselected= False
 
 		# 2) set up game objects
 		self.clock = pygame.time.Clock()
 		
-		self.showStartMenu=False
-		self.showPlayGame= True
+		self.showStartMenu=True
+		self.showPlayGame= False
 		self.showEndMenu=False
 		self.showPauseMenu=False
 		for c in range(0, 10):
 			self.powerups.append(PowerUp(self))
-	def makeRacer(self, x, y):
+	def makeRacer(self, x, y, color):
 		print "making racer: ", x," ", y
-		racer = Racer(x, y, self)
+		racer = Racer(x, y,color, self)
 		return racer
 		#score = Score(self) #to update the score
 		
 
 	def main(self):
+		
 		if self.showStartMenu:
 			self.startMenu()
 		elif self.showPlayGame:
 			self.playGame()
-	
 	def startMenu(self):
-		colors = ["blue", "red", "green"]
-		xpos= 200
-		ypos= 100
+		self.screen.fill(self.black)
+		w= waiting()
+		welcometext  = pygame.image.load("media/texts/welcome.png")	
+		rect= welcometext.get_rect()
+		rect.center= (BOARD_WIDTH/2, 50 )
+		self.screen.blit(welcometext, rect)
+
+		choosecartext = pygame.image.load("media/texts/choosecar.png")	
+		rect= choosecartext.get_rect()
+		rect.center= (BOARD_WIDTH/2, 100 )
+		self.screen.blit(choosecartext, rect)
+		xpos= 100
+		ypos= 200
+		counter =0	
+		colors = ["blue", "green", "darkblue","lightgreen", "orange", "pink", "seafoam", "yellow"]	
+		cars = []
 		for c in colors:
-			carstr = "media/cars/" + c +".png"
- 			car = pygame.image.load(carstr)
-			rect = car.get_rect()
-			ypos +=100
-			centerx = x
-			centery = y
+			car= StartMenuRacer(xpos, ypos, c)
+			cars.append(car)
+			xpos +=100
+			if counter ==3:
+				ypos+=200
+				xpos = 100
+			self.screen.blit(car.carimage, car.rect)
+			counter+=1
+		white = (255,255,255)
+		green = (0, 255, 0)
+
+		mx, my = pygame.mouse.get_pos()
+		for c in cars:
+			if c.rect.collidepoint(mx,my):
+				white = (255,255,255)
+				pygame.draw.rect(self.screen, white, (c.x-40,c.y-78,80,155), 5)
+			
+		for event in pygame.event.get():
+			if event.type == pygame.KEYDOWN :
+				if event.key == pygame.K_ESCAPE:
+					reactor.stop()		
+			elif event.type == pygame.MOUSEBUTTONDOWN:
+				mx, my = pygame.mouse.get_pos()	
+				for c in cars:
+					if c.rect.collidepoint(mx,my):
+						self.racerselected = True
+						self.selected = c
+						self.p1color = c.color
+						connections['data'].sendLine('racerselected\t' + c.color) 
+						pygame.draw.rect(self.screen, green, (c.x-40,c.y-78,80,155), 5)
+
+		if self.racerselected:
+			pygame.draw.rect(self.screen, green, (self.selected.x-40,self.selected.y-78,80,155), 5)
+			self.screen.blit(w.waitexitimage, w.rect)
+
+		if self.racerselected and self.otherracerselected:	
+			if self.isHost:
+				self.racer = self.makeRacer(200, 400, self.p1color)
+				self.racer2= self.makeRacer(400, 400, self.p2color)
+			else:
+				self.racer = self.makeRacer(400, 400, self.p1color)
+				self.racer2= self.makeRacer(200,400, self.p2color)
+			self.showPlayGame =True
+			self.showStartMenu = False
+		pygame.display.flip()	
+					
+ 
 	def playGame(self):
-	
+			
 		for event in pygame.event.get():
 			if event.type == pygame.KEYDOWN :
 				if event.key == pygame.K_ESCAPE:
@@ -244,12 +323,7 @@ class PlayerConnection(LineReceiver):
 		connections['data'] = self
 		self.gs = GameSpace()
 		self.gs.isHost = self.isHost
-		if self.gs.isHost:
-			self.gs.racer = self.gs.makeRacer(200, 400)
-			self.gs.racer2= self.gs.makeRacer(400, 400)
-		else:
-			self.gs.racer = self.gs.makeRacer(400, 400)
-			self.gs.racer2= self.gs.makeRacer(200,400)
+	
 
 		lc = LoopingCall( self.gs.main )
 		lc.start( 1 / 60)
@@ -267,6 +341,11 @@ class PlayerConnection(LineReceiver):
 			self.gs.bothLaunch()
 		elif data[0] == 'end': # someone lost
 			self.gs.winner = True
+		elif data[0]=='racerselected':
+			print "color: ", data[1]
+			self.gs.p2color = data[1]
+			self.gs.otherracerselected = True
+			
 	def sendLine(self, line):
 		print "sending line"
 		line += '\r\n'
