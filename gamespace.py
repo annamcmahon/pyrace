@@ -13,6 +13,12 @@ from twisted.internet.defer import DeferredQueue
 
 BOARD_WIDTH = 512
 BOARD_HEIGHT = 512
+#TODO 
+# merge branches
+# get the coins to travel on the road
+# home screen/ pick a car
+# specifying a host machine
+# levels?/ multiple terrains
 
 class PowerUp(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
@@ -73,54 +79,69 @@ class Racer(pygame.sprite.Sprite):
 			self.centerx -=15
 
 class GameSpace:
-	def main(self):
+	def __init__(self):
 		# 1) basic initialization
 		pygame.init()
 		self.size = self.width, self.height = BOARD_WIDTH, BOARD_HEIGHT
 		self.black = 0, 0, 0
 		self.screen = pygame.display.set_mode(self.size)
-		screen = pygame.display.set_mode((512, 512), pygame.DOUBLEBUF)
-		bg = parallax.ParallaxSurface((512, 512), pygame.RLEACCEL)
-		bg.add('media/tunnel_road.jpg', 1)
-		orientation = 'vertical'
-		speed=0
+		self.screen = pygame.display.set_mode((512, 512), pygame.DOUBLEBUF)
+		self.bg = parallax.ParallaxSurface((512, 512), pygame.RLEACCEL)
+		self.bg.add('media/tunnel_road.jpg', 1)
+		self.orientation = 'vertical'
+		self.speed=0
 		self.winner = False
 		self.ready= False
 		self.powerups = []
 		# 2) set up game objects
 		self.clock = pygame.time.Clock()
 		self.racer = Racer(self)
-		
-		#self.powerup = PowerUp(self)
+		self.showStartMenu=False
+		self.showPlayGame= True
+		self.showEndMenu=False
+		self.showPauseMenu=False
 		for c in range(0, 10):
 			self.powerups.append(PowerUp(self))
+	def main(self):
+		if self.showStartMenu:
+			self.startMenu()
+		elif self.showPlayGame:
+			self.playGame()
 	
-			# 3) start game loop
-		while 1:
-			# 4) clock tick regulation (framerate)
-			self.clock.tick(60)
-			# 5) this is where you would handle user inputs...
-			for event in pygame.event.get():
-				if event.type == pygame.KEYDOWN :
-					self.racer.move(event.key)
-					connections['data'].sendLine('key\t' + str(event.key))
+	def startMenu(self):
+		pass
+	def playGame(self):
+	
+		for event in pygame.event.get():
+			if event.type == pygame.KEYDOWN :
+				if event.key == pygame.K_ESCAPE:
+					reactor.stop()		
+				self.racer.move(event.key)
+				print "key down"
+				connections['data'].sendLine('key\t' + str(pygame.K_LEFT)) #event.key))
 
-			# 6) send a tick to every game object
-			self.racer.tick()
-			self.racer2.tick()
-			for p in self.powerups:
-				p.tick()
-			# 7) and finally, display the game objects
-			self.screen.fill(self.black)
-			speed += 2
-			bg.scroll(speed, orientation)
-			speed -= 2
-			bg.draw(screen)
-			for p in self.powerups:
-				self.screen.blit(p.image, p.rect)
-			self.screen.blit(self.racer.image, self.racer.rect)
-			self.screen.blit(self.racer2.image, self.racer2.rect)
-			pygame.display.flip()
+		# 6) send a tick to every game object
+		self.racer.tick()
+		self.racer2.tick()
+		for p in self.powerups:
+			p.tick()
+		# 7) and finally, display the game objects
+		self.screen.fill(self.black)
+		self.speed += 2
+		self.bg.scroll(self.speed, self.orientation)
+		self.speed -= 2
+		self.bg.draw(self.screen)
+		for p in self.powerups:
+			self.screen.blit(p.image, p.rect)
+		self.screen.blit(self.racer.image, self.racer.rect)
+		self.screen.blit(self.racer2.image, self.racer2.rect)
+		pygame.display.flip()
+
+	def endMenu(self):
+		pass
+	def pauseMenu(self):
+		pass
+
 
 class PlayerConnection(LineReceiver):
 	def connectionMade(self):
@@ -133,18 +154,20 @@ class PlayerConnection(LineReceiver):
 		lc.start( 1 / 60)
 	def lineReceived(self, line): # line received
 		data = line.split('\t') # split to get what kind of signal we are getting
+		print "line recieved, " , line
 		if data[0] == 'key': #key input
 			print "key recieved, ", data[1]
 			if int(data[1]) == pygame.K_RIGHT:
-				self.gs.racer2.move(int(data[1]).key)
+				self.gs.racer2.move(int(data[1]))
 			elif int(data[1]) == pygame.K_LEFT:
-				self.gs.racer2.move(int(data[1]).key)
+				self.gs.racer2.move(int(data[1]))
 		elif data[0] == 'ready': # ready to play
 			print "ready"
 			self.gs.bothLaunch()
 		elif data[0] == 'end': # someone lost
 			self.gs.winner = True
 	def sendLine(self, line):
+		print "sending line"
 		line += '\r\n'
 		connections['data'].transport.write(line)
 	def connectionLost(self, reason):
