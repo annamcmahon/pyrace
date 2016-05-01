@@ -19,6 +19,7 @@ BOARD_HEIGHT = 512
 # specifying a host machine
 # levels?/ multiple terrains
 GREEN = (0, 255, 0)
+WHITE = (255,255,255)
 
 
 class PowerUp(pygame.sprite.Sprite):
@@ -43,7 +44,6 @@ class PowerUp(pygame.sprite.Sprite):
 			self.counter=0
 		self.image = pygame.image.load(self.images[self.counter])
 		self.counter +=1
-
 		self.centery += self.speed		
 		self.rect.center = (self.centerx, self.centery)
 
@@ -143,14 +143,14 @@ class Score(pygame.sprite.Sprite): #display how many coins have been retrieved
 		self.gs = gs
 		self.font = pygame.font.Font(None, 30)
 		self.text = "Score: " + str(self.player.power)
-		self.image = self.font.render(self.text,1,GREEN)
+		self.image = self.font.render(self.text,1,WHITE)
 		self.rect = self.image.get_rect()
 		self.rect.center = self.player.rect.center
 
 	def tick(self):
 		self.rect.center = self.player.rect.center 
 		self.text = "Score: " + str(self.player.power)
-		self.image = self.font.render(self.text,1,GREEN)
+		self.image = self.font.render(self.text,1,WHITE)
 
 class Obstacle(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
@@ -167,7 +167,7 @@ class Obstacle(pygame.sprite.Sprite):
 		
 	
 	def tick(self):
-		#check if off the grid, if so reset the position
+		#check if off the grid, delete and create?
 		#if self.centery > BOARD_HEIGHT: 
 		#	self.centerx = random.randrange(0,BOARD_WIDTH)
 		#	self.centery = random.randrange(-1000,-10) #to start off the screen
@@ -250,6 +250,32 @@ class GameSpace:
 		connections['data'].sendLine('powerup\t' + powerStr) 
 		#send them  
 
+	def checkObstacles(self):
+		for i in self.obstacles:
+			if i.centery > BOARD_HEIGHT: 
+				del i #does this work?
+				#remove and add a new one, send to other if not host
+				if self.isHost:
+					self.obstacles.append(Obstacle(self))
+					to_send = list()
+					to_send.append({'x': self.obstacles[-1].centerx, 'y': self.obstacles[-1].centery})
+					newObs = pickle.dumps(to_send)
+					connections['data'].sendLine('add1_O\t' + newObs) 
+
+	def checkPower(self):
+		for i in self.powerups:
+			if i.centery > BOARD_HEIGHT: 
+				del i #does this work?
+				#remove and add a new one, send to other if not host
+				if self.isHost:
+					self.powerups.append(PowerUp(self))
+					to_send = list()
+					to_send.append({'x': self.powerups[-1].centerx, 'y': self.powerups[-1].centery})
+					#pickle the list
+					#now need to send this instance so the other one adds it
+					newPower = pickle.dumps(to_send)
+					connections['data'].sendLine('add1_P\t' + newPower) 
+
 	def makeRacer(self, x, y, color):
 		print "making racer: ", x," ", y
 		racer = Racer(x, y,color, self)
@@ -291,14 +317,14 @@ class GameSpace:
 				xpos = 100
 			self.screen.blit(car.carimage, car.rect)
 			counter+=1
-		white = (255,255,255)
-		green = (0, 255, 0)
+		#white = (255,255,255)
+		#green = (0, 255, 0)
 
 		mx, my = pygame.mouse.get_pos()
 		for c in cars:
 			if c.rect.collidepoint(mx,my):
-				white = (255,255,255)
-				pygame.draw.rect(self.screen, white, (c.x-40,c.y-78,80,155), 5)
+				#white = (255,255,255)
+				pygame.draw.rect(self.screen, WHITE, (c.x-40,c.y-78,80,155), 5)
 			
 		for event in pygame.event.get():
 			if event.type == pygame.KEYDOWN :
@@ -312,10 +338,10 @@ class GameSpace:
 						self.selected = c
 						self.p1color = c.color
 						connections['data'].sendLine('racerselected\t' + c.color) 
-						pygame.draw.rect(self.screen, green, (c.x-40,c.y-78,80,155), 5)
+						pygame.draw.rect(self.screen, GREEN, (c.x-40,c.y-78,80,155), 5)
 
 		if self.racerselected:
-			pygame.draw.rect(self.screen, green, (self.selected.x-40,self.selected.y-78,80,155), 5)
+			pygame.draw.rect(self.screen, GREEN, (self.selected.x-40,self.selected.y-78,80,155), 5)
 			self.screen.blit(w.waitexitimage, w.rect)
 
 		if self.racerselected and self.otherracerselected:	
@@ -378,13 +404,17 @@ class GameSpace:
 		else:
 			self.checkWin()	
 		pygame.display.flip()
+		print "lenght of coins: ", len(self.powerups)
+		print "lenght of obstacles: ", len(self.obstacles)
+		self.checkObstacles()
+		self.checkPower()
 
 	def checkWin(self):
 		#check win
-		if(self.racer.power > 500):
+		if(self.racer.power > 200):
 			self.isWinner = 1
 			self.win = Win(self) 
-		elif(self.racer2.power > 500):
+		elif(self.racer2.power > 200):
 			self.isWinner = 2
 			self.win = Win(self)
 
