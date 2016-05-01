@@ -14,53 +14,51 @@ import cPickle as pickle
 
 BOARD_WIDTH = 512
 BOARD_HEIGHT = 512
-# get the coins to travel on the road
-# home screen/ pick a car
-# specifying a host machine
-# levels?/ multiple terrains
 GREEN = (0, 255, 0)
 WHITE = (255,255,255)
+COIN_BONUS = 15
+OBSTACLE_COST = 10
+OFF_SCREEN = 20
+TO_MOVE = 15
+TO_WIN = 200
 
 
-class PowerUp(pygame.sprite.Sprite):
+class PowerUp(pygame.sprite.Sprite): #the coin class 
+#these coins will "fall" down the top of the screen and the player can get coins to increase their score
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
-		self.images = []
-		#self.player = self.gs.racer #this will be the racer
+		self.images = [] #to be able to iterate through coin images, appearance of spinning
 		self.counter = random.randrange(0,6) # starts at a random coin position
 		for n in range(1, 7):
 			imagename = "media/Coins/coin" + str(n) +".png"
 			self.images.append(imagename)
 		self.image = pygame.image.load(self.images[self.counter])
 		self.rect = self.image.get_rect()
-		self.centerx =  random.randrange(0,BOARD_WIDTH)
+		self.centerx =  random.randrange(0,BOARD_WIDTH) #initially position it randomly at the top/off screen
 		self.centery=  random.randrange(-500,25)
 		self.rect.center = (self.centerx, self.centery)
-		self.speed = 2
+		self.speed = 2 #this will be used to increase the position, allows the coin to move
 
 	def tick(self):
-		if self.counter > 5: 
+		#determine what image to display
+		if self.counter > 5:  
 			self.counter=0
 		self.image = pygame.image.load(self.images[self.counter])
 		self.counter +=1
 		self.centery += self.speed		
 		self.rect.center = (self.centerx, self.centery)
 
-class Racer(pygame.sprite.Sprite):
+class Racer(pygame.sprite.Sprite): #this is the player class
 	def __init__(self,  x, y, color, gs=None):
-		print "making racer init: ", x, " ", y
+		#print "making racer init: ", x, " ", y
 		pygame.sprite.Sprite.__init__(self)
-		self.gs = gs
-		self.crash = None 
-		#maybe add a variable self.canMove = true then crash set to false?
-		
-		imagename = "media/cars/" + color +".png"
+		self.gs = gs		
+		imagename = "media/cars/" + color +".png" #pick the right color car
 		self.image = pygame.image.load(imagename)
 		self.rect = self.image.get_rect()
-		self.centerx = x
-		self.centery = y
-
+		self.centerx = x #we pass in the x and y coordinates to create the cars in the right places based on if host
+		self.centery = y 
 		self.rect.center = (self.centerx, self.centery)
 		# keep original image to limit resize errors
 		self.orig_image = self.image
@@ -71,55 +69,64 @@ class Racer(pygame.sprite.Sprite):
 	def tick(self):
 		self.rect = self.image.get_rect()
 		self.rect.center = (self.centerx, self.centery)
-		self.checkCrash()
-		for idx in self.rect.collidelistall(self.gs.powerups):
-			del self.gs.powerups[idx]
-			if self.gs.isHost:
-				self.gs.powerups.append(PowerUp(self.gs))
+		self.checkCrash() #deduct points if they moved "off" track
+		for idx in self.rect.collidelistall(self.gs.powerups): #check to see if they got any coins
+			del self.gs.powerups[idx] #delete the coin from both screens
+			#if you are the host, create a new coin and send this to the other game
+			if self.gs.isHost: 
+				self.gs.powerups.append(PowerUp(self.gs)) #create new power up and get coordinates
 				to_send = list()
 				to_send.append({'x': self.gs.powerups[-1].centerx, 'y': self.gs.powerups[-1].centery})
-				#pickle the list
-				#now need to send this instance so the other one adds it
-				newPower = pickle.dumps(to_send)
-				connections['data'].sendLine('add1_P\t' + newPower) 
-			self.power +=15;
+				newPower = pickle.dumps(to_send) #pickle/compress the list to send over, easy way of converting lists/strings
+				connections['data'].sendLine('add1_P\t' + newPower) #send message
+			self.power += COIN_BONUS; #update score
 	
-		for idx in self.rect.collidelistall(self.gs.obstacles):
-			del self.gs.obstacles[idx] #delete off screen no matter what
-			if self.gs.isHost:
+		for idx in self.rect.collidelistall(self.gs.obstacles): #check to see if they hit an obstacle
+			del self.gs.obstacles[idx] #delete off screen 
+			if self.gs.isHost: #similar to above
 				self.gs.obstacles.append(Obstacle(self.gs))
 				to_send = list()
 				to_send.append({'x': self.gs.obstacles[-1].centerx, 'y': self.gs.obstacles[-1].centery})
 				newObs = pickle.dumps(to_send)
 				connections['data'].sendLine('add1_O\t' + newObs) 
-			self.power -=10;
+			self.power -= OBSTACLE_COST; #update score
 			
-	def move(self, keycode):
+	def move(self, keycode): #move according to keycode
 		if keycode == pygame.K_DOWN :
-			self.centery +=15
+			self.centery += TO_MOVE
 		elif keycode == pygame.K_UP :
-			self.centery -=15
+			self.centery -= TO_MOVE
 		elif keycode == pygame.K_RIGHT:
-			self.centerx +=15
+			self.centerx += TO_MOVE
 		elif keycode == pygame.K_LEFT:
-			self.centerx -=15
+			self.centerx -= TO_MOVE
+
+		#check if overlapped - close not quite there yet
+		#if self.gs.isHost:
+		#	if self.gs.racer.rect.right > self.gs.racer2.rect.left:
+		#		self.gs.racer.centerx -= 15
+		#else:
+		#	if self.gs.racer.rect.left < self.gs.racer2.rect.right:
+		#		self.gs.racer.centerx += 15
+		#self.gs.racer.rect.center = (self.gs.racer.centerx, self.gs.racer.centery)
+		#self.gs.racer2.rect.center = (self.gs.racer2.centerx, self.gs.racer2.centery)
 
 	def checkCrash(self): #check if the car goes off the screen
 		if (self.rect.left < 0):
-			self.power -= 5
+			self.power -= OFF_SCREEN
 			self.centerx = 50
 		elif (self.rect.right > BOARD_WIDTH):
-			self.power -= 5
+			self.power -= OFF_SCREEN
 			self.centerx = BOARD_WIDTH - 50
 		elif (self.rect.bottom > BOARD_HEIGHT):
-			self.power -= 5
+			self.power -= OFF_SCREEN
 			self.centery = BOARD_HEIGHT - 100
 		elif (self.rect.top < 0):
-			self.power -= 5
+			self.power -= OFF_SCREEN
 			self.centery = 100
 		self.rect.center = (self.centerx, self.centery)
 			
-class Win(pygame.sprite.Sprite): #could change this to on crash, decrease the health
+class Win(pygame.sprite.Sprite): #Indicate on the screen who won
 	def __init__(self,gs = None):
 		self.gs = gs
 		#remove all obstacles and power ups from the gamespace
@@ -127,7 +134,7 @@ class Win(pygame.sprite.Sprite): #could change this to on crash, decrease the he
 		self.gs.powerups[:] = []
 
 		self.font = pygame.font.Font(None, 100)
-		#TODO fix this bug - might be off
+		#TODO check this:
 		if (self.gs.isWinner == 1 and self.gs.isHost == True) or (self.gs.isWinner == 2 and self.gs.isHost == False):
 			self.win = 1 
 		elif (self.gs.isWinner == 1 and self.gs.isHost == False) or (self.gs.isWinner == 2 and self.gs.isHost == True):
@@ -137,7 +144,7 @@ class Win(pygame.sprite.Sprite): #could change this to on crash, decrease the he
 		self.rect = self.image.get_rect()
 		self.rect.center = ((BOARD_HEIGHT / 2), (BOARD_WIDTH / 2) - 200)
 
-class Score(pygame.sprite.Sprite): #display how many coins have been retrieved
+class Score(pygame.sprite.Sprite): #display each player's score on their cars
 	def __init__(self,gs = None , racer = None):
 		self.player = racer
 		self.gs = gs
@@ -152,25 +159,22 @@ class Score(pygame.sprite.Sprite): #display how many coins have been retrieved
 		self.text = "Score: " + str(self.player.power)
 		self.image = self.font.render(self.text,1,WHITE)
 
-class Obstacle(pygame.sprite.Sprite):
+class Obstacle(pygame.sprite.Sprite): #obstacle objects
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
-		self.image = pygame.image.load("media/danger2.png")
+		self.image = pygame.image.load("media/danger2.png") #load image
 		self.rect = self.image.get_rect()
 		self.centerx = random.randrange(0,BOARD_WIDTH)
-		self.centery = random.randrange(-1000,-10) #to start off the screen
+		self.centery = random.randrange(-1000,-10) #to start off the screen random position
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
 		self.rect.center = (self.centerx, self.centery)
-		self.speed = 1
+		self.speed = 1 #speed of obstacles - slower than coins
 		
 	
 	def tick(self):
-		#check if off the grid, delete and create?
-		#if self.centery > BOARD_HEIGHT: 
-		#	self.centerx = random.randrange(0,BOARD_WIDTH)
-		#	self.centery = random.randrange(-1000,-10) #to start off the screen
+		#increase center y to move the obstacles
 		self.centery += self.speed		
 		self.rect.center = (self.centerx, self.centery)
 
@@ -208,9 +212,9 @@ class GameSpace:
 		self.bg = parallax.ParallaxSurface((512, 512), pygame.RLEACCEL)
 		self.bg.add('media/tunnel_road.jpg', 1)
 		self.orientation = 'vertical'
-		self.speed=0
+		self.speed = 0
 		self.winner = False
-		self.ready= False
+		#self.ready = False
 		self.powerups = []
 		self.obstacles = [] #for avoiding things
 
@@ -231,66 +235,60 @@ class GameSpace:
 	def makeObstacles(self): #only called if host
 		for i in range (0,10):
 			self.obstacles.append(Obstacle(self))
-			#self.obstaclePos.append(self.obstacles[i].centerx)
-			#self.obstaclePos.append(self.obstacles[i].centery)
 			self.obstaclePos.append({ 'x': self.obstacles[i].centerx, 'y': self.obstacles[i].centery})
-			print  'y',self.obstacles[i].centery, 'x', self.obstacles[i].centerx
-
+			#print  'y',self.obstacles[i].centery, 'x', self.obstacles[i].centerx
 
 		obsStr = pickle.dumps(self.obstaclePos)
-		connections['data'].sendLine('obstacle\t' + obsStr) 
-		#return self.obstacles
+		connections['data'].sendLine('obstacle\t' + obsStr) #send to other game
 
-	def makePowerUp(self):
+	def makePowerUp(self): #make power ups if host
 		for c in range(0, 10):
 			self.powerups.append(PowerUp(self))
 			self.powerUpPos.append({ 'x': self.powerups[c].centerx, 'y': self.powerups[c].centery})
-			print 'y', self.powerups[c].centery, 'x', self.powerups[c].centerx 
-		powerStr = pickle.dumps(self.powerUpPos)
-		connections['data'].sendLine('powerup\t' + powerStr) 
-		#send them  
+			#print 'y', self.powerups[c].centery, 'x', self.powerups[c].centerx 
 
-	def checkObstacles(self):
+		powerStr = pickle.dumps(self.powerUpPos)
+		connections['data'].sendLine('powerup\t' + powerStr)  #send them  to other tgame
+
+	def checkObstacles(self): #check to see if obstacles need to be replaced
 		for i in self.obstacles:
 			if i.centery > BOARD_HEIGHT: 
-				del i #does this work?
+				self.obstacles.remove(i) #remove the one that is too far off the screen
 				#remove and add a new one, send to other if not host
 				if self.isHost:
 					self.obstacles.append(Obstacle(self))
 					to_send = list()
 					to_send.append({'x': self.obstacles[-1].centerx, 'y': self.obstacles[-1].centery})
 					newObs = pickle.dumps(to_send)
-					connections['data'].sendLine('add1_O\t' + newObs) 
+					connections['data'].sendLine('add1_O\t' + newObs) #send to join
 
 	def checkPower(self):
 		for i in self.powerups:
 			if i.centery > BOARD_HEIGHT: 
-				del i #does this work?
+				self.powerups.remove(i) 
 				#remove and add a new one, send to other if not host
 				if self.isHost:
 					self.powerups.append(PowerUp(self))
 					to_send = list()
 					to_send.append({'x': self.powerups[-1].centerx, 'y': self.powerups[-1].centery})
-					#pickle the list
-					#now need to send this instance so the other one adds it
 					newPower = pickle.dumps(to_send)
 					connections['data'].sendLine('add1_P\t' + newPower) 
 
-	def makeRacer(self, x, y, color):
+	def makeRacer(self, x, y, color): #making the players
 		print "making racer: ", x," ", y
 		racer = Racer(x, y,color, self)
 		return racer
 
 	def makeScore(self):
 		self.score1 = Score(self,self.racer) #to update the score
-		self.score2 = Score(self,self.racer2) #bad idea to pass in but I want 2 distinct objects
+		self.score2 = Score(self,self.racer2) #pass in racer to associate score with racer
 
 	def main(self):
-		
 		if self.showStartMenu:
 			self.startMenu()
 		elif self.showPlayGame:
 			self.playGame()
+
 	def startMenu(self):
 		self.screen.fill(self.black)
 		w= waiting()
@@ -317,13 +315,11 @@ class GameSpace:
 				xpos = 100
 			self.screen.blit(car.carimage, car.rect)
 			counter+=1
-		#white = (255,255,255)
-		#green = (0, 255, 0)
+	
 
 		mx, my = pygame.mouse.get_pos()
 		for c in cars:
 			if c.rect.collidepoint(mx,my):
-				#white = (255,255,255)
 				pygame.draw.rect(self.screen, WHITE, (c.x-40,c.y-78,80,155), 5)
 			
 		for event in pygame.event.get():
@@ -399,29 +395,29 @@ class GameSpace:
 			self.screen.blit(o.image, o.rect)
 		if(self.isWinner != None):
 			self.screen.blit(self.win.image, self.win)
-			self.obstacles[:] = [] #- make sure that these are cleared - change to a better way
-			self.powerups[:] = [] #could check in player if isWinner != none then don't add
+			self.obstacles[:] = [] #- make sure that these are cleared 
+			self.powerups[:] = [] 
 		else:
 			self.checkWin()	
 		pygame.display.flip()
-		print "lenght of coins: ", len(self.powerups)
-		print "lenght of obstacles: ", len(self.obstacles)
-		self.checkObstacles()
+		#print "lenght of coins: ", len(self.powerups)
+		#print "lenght of obstacles: ", len(self.obstacles)
+		self.checkObstacles() #check obstacles and powerups if on screen
 		self.checkPower()
 
 	def checkWin(self):
 		#check win
-		if(self.racer.power > 200):
+		if(self.racer.power > TO_WIN):
 			self.isWinner = 1
 			self.win = Win(self) 
-		elif(self.racer2.power > 200):
+		elif(self.racer2.power > TO_WIN):
 			self.isWinner = 2
 			self.win = Win(self)
 
-	def endMenu(self):
-		pass
-	def pauseMenu(self):
-		pass
+	#def endMenu(self):
+	#	pass
+	#def pauseMenu(self):
+	#	pass
 
 
 class PlayerConnection(LineReceiver):
@@ -432,11 +428,8 @@ class PlayerConnection(LineReceiver):
 		self.setLineMode()
 		connections['data'] = self
 		self.gs = GameSpace()
-		self.gs.isHost = self.isHost
-	
-		print "is Host?", self.gs.isHost
-		#need a way to check to see whether or not to start the loops
-
+		self.gs.isHost = self.isHost	
+		#print "is Host?", self.gs.isHost
 		lc = LoopingCall( self.gs.main )
 		lc.start( 1 / 60)
 
@@ -447,25 +440,23 @@ class PlayerConnection(LineReceiver):
 			print "key recieved, ", data[1]
 			if int(data[1]) == pygame.K_RIGHT or int(data[1]) == pygame.K_LEFT or int(data[1]) == pygame.K_UP or int(data[1]) == pygame.K_DOWN:
 				self.gs.racer2.move(int(data[1]))
-			#elif int(data[1]) == pygame.K_LEFT:
-			#	self.gs.racer2.move(int(data[1]))
-		elif data[0] == 'obstacle':
-			my_array = pickle.loads(data[1])
+
+		elif data[0] == 'obstacle': #create all the obstacles
+			my_array = pickle.loads(data[1]) #make the string into an array again
 			idx = 0
 			for i in my_array:
-				print i #{ x : y}
-				self.gs.obstacles.append(Obstacle(self.gs))
+				#print i 
+				self.gs.obstacles.append(Obstacle(self.gs)) #creates a random, updates position
 				self.gs.obstacles[idx].centerx = i['x']
 				self.gs.obstacles[idx].centery = i['y']
 				self.gs.obstacles[idx].rect.center = (i['x'], i['y'])
 				idx += 1 #increase the index for the obstacles
 
-
 		elif data[0] == 'powerup':
-			my_array = pickle.loads(data[1])
+			my_array = pickle.loads(data[1]) #string -> array
 			idx = 0
 			for i in my_array:
-				print i #{ x : y}
+				#print i 
 				self.gs.powerups.append(PowerUp(self.gs))
 				self.gs.powerups[idx].centerx = i['x']
 				self.gs.powerups[idx].centery = i['y']
@@ -473,7 +464,7 @@ class PlayerConnection(LineReceiver):
 				idx += 1 #increase the index for the obstacle
 
 		elif data[0] == 'add1_P':
-			print "adding powerup"
+			#print "adding powerup"
 			powerUp_data = pickle.loads(data[1])
 			powerUp_data = powerUp_data[0] #just a list of 1 element, set this var to the actual dict
 			self.gs.powerups.append(PowerUp(self.gs))
@@ -482,7 +473,7 @@ class PlayerConnection(LineReceiver):
 			self.gs.powerups[-1].rect.center = (powerUp_data['x'], powerUp_data['y'])
 
 		elif data[0] == 'add1_O':
-			print "adding obstacle"
+			#print "adding obstacle"
 			obstacle_data = pickle.loads(data[1])
 			obstacle_data = obstacle_data[0] #just a list of 1 element, set this var to the actual dict
 			self.gs.obstacles.append(Obstacle(self.gs))
@@ -490,12 +481,6 @@ class PlayerConnection(LineReceiver):
 			self.gs.obstacles[-1].centery = obstacle_data['y']
 			self.gs.obstacles[-1].rect.center = (obstacle_data['x'], obstacle_data['y'])
 
-			#self.gs.obstacles = pickle.loads(data[1]) #set obstacles on both
-		elif data[0] == 'ready': # ready to play
-			print "ready"
-			self.gs.bothLaunch()
-		elif data[0] == 'end': # someone lost
-			self.gs.winner = True
 		elif data[0]=='racerselected':
 			print "color: ", data[1]
 			self.gs.p2color = data[1]
@@ -518,7 +503,7 @@ class PlayerConnectionFactory( ReconnectingClientFactory ):
 if __name__ == '__main__':
 	isHost = False
 	connections = {}
-	if sys.argv[1] == 'host': # star host connection
+	if sys.argv[1] == 'host': # start host connection
 		isHost = True
 		reactor.listenTCP(int(sys.argv[2]), PlayerConnectionFactory(isHost))
 		reactor.run()
