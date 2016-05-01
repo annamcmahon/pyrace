@@ -7,9 +7,9 @@ Pygame + Twisted Project
 2 out of 2 users recommend this game! Available on localhost now!
 
 To run the game:
-One player must first run > python gamespace.py host <port number>.
-Then the second payer must run > python gamespace.py join <same port number>
-Make sure both players are running gamespace.py on the same machine. We have specified the machine as 'localhost'
+One player must first run -> python gamespace.py host 'port number'.
+Then the second payer must run -> python gamespace.py join 'same port number'.
+Make sure both players are running gamespace.py on the same machine. We have specified the machine as 'localhost'.
 
 To play the game:
 Choose your car color. When both players respond, the game will begin.
