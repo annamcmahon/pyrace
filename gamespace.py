@@ -302,10 +302,10 @@ class GameSpace:
 
 	def checkWin(self):
 		#check win
-		if(self.racer.power > 500):
+		if(self.racer.power > 100):
 			self.isWinner = 1
 			self.win = Win(self) 
-		elif(self.racer2.power > 500):
+		elif(self.racer2.power > 100):
 			self.isWinner = 2
 			self.win = Win(self)
 
