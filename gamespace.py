@@ -38,7 +38,6 @@ class PowerUp(pygame.sprite.Sprite):
 		self.rect.center = (self.centerx, self.centery)
 		self.speed = 2
 
-
 	def tick(self):
 		if self.counter > 5: 
 			self.counter=0
@@ -47,9 +46,6 @@ class PowerUp(pygame.sprite.Sprite):
 
 		self.centery += self.speed		
 		self.rect.center = (self.centerx, self.centery)
-
-
-
 
 class Racer(pygame.sprite.Sprite):
 	def __init__(self,  x, y, color, gs=None):
@@ -217,16 +213,12 @@ class GameSpace:
 		self.ready= False
 		self.powerups = []
 		self.obstacles = [] #for avoiding things
-		for i in range (0,10):
-			self.obstacles.append(Obstacle(self))
 
 		self.racerselected = False
 		self.otherracerselected= False
 
 		self.obstaclePos = [] #for the positions
 		self.powerUpPos = [] 
-		#self.makeObstacles()
-		# 2) set up game objects
 		self.clock = pygame.time.Clock()
 		
 		self.showStartMenu=True
