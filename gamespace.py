@@ -1,3 +1,4 @@
+#Anna McMahon and Katie Quinn
 import sys
 import os
 import pygame
@@ -306,6 +307,7 @@ class GameSpace:
 		counter =0	
 		colors = ["blue", "green", "darkblue","lightgreen", "orange", "pink", "seafoam", "yellow"]	
 		cars = []
+		#used to make all of the "StartMenuRacer" cars that are on the start up page
 		for c in colors:
 			car= StartMenuRacer(xpos, ypos, c)
 			cars.append(car)
@@ -316,12 +318,12 @@ class GameSpace:
 			self.screen.blit(car.carimage, car.rect)
 			counter+=1
 	
-
+		#highlighting functionality: draw a box around the current car
 		mx, my = pygame.mouse.get_pos()
 		for c in cars:
 			if c.rect.collidepoint(mx,my):
 				pygame.draw.rect(self.screen, WHITE, (c.x-40,c.y-78,80,155), 5)
-			
+		#handle the click events: highlight car and send car selection data to player 2
 		for event in pygame.event.get():
 			if event.type == pygame.KEYDOWN :
 				if event.key == pygame.K_ESCAPE:
@@ -335,12 +337,12 @@ class GameSpace:
 						self.p1color = c.color
 						connections['data'].sendLine('racerselected\t' + c.color) 
 						pygame.draw.rect(self.screen, GREEN, (c.x-40,c.y-78,80,155), 5)
-
+		#if you have selected your racer but the other player has not, display message
 		if self.racerselected:
 			pygame.draw.rect(self.screen, GREEN, (self.selected.x-40,self.selected.y-78,80,155), 5)
 			self.screen.blit(w.waitexitimage, w.rect)
-
-		if self.racerselected and self.otherracerselected:	
+		#continue to game play mode of the game
+		if self.racerselected and self.otherracerselected:
 			if self.isHost:
 				self.racer = self.makeRacer(200, 400, self.p1color)
 				self.racer2= self.makeRacer(400, 400, self.p2color)
@@ -355,7 +357,7 @@ class GameSpace:
 			self.showStartMenu = False
 
 		pygame.display.flip()	
-					 
+	#play the game, this state is entered once both players have selected a car
 	def playGame(self):
 	
 		for event in pygame.event.get():
@@ -382,6 +384,7 @@ class GameSpace:
 		# 7) and finally, display the game objects
 		self.screen.fill(self.black)
 		self.speed += 2
+		#set up the parallax object to simulate the scrolling affect
 		self.bg.scroll(self.speed, self.orientation)
 		self.speed -= 2
 		self.bg.draw(self.screen)
@@ -413,11 +416,6 @@ class GameSpace:
 		elif(self.racer2.power > TO_WIN):
 			self.isWinner = 2
 			self.win = Win(self)
-
-	#def endMenu(self):
-	#	pass
-	#def pauseMenu(self):
-	#	pass
 
 
 class PlayerConnection(LineReceiver):
