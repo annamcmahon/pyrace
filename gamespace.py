@@ -102,15 +102,6 @@ class Racer(pygame.sprite.Sprite): #this is the player class
 		elif keycode == pygame.K_LEFT:
 			self.centerx -= TO_MOVE
 
-		#check if overlapped - close not quite there yet
-		#if self.gs.isHost:
-		#	if self.gs.racer.rect.right > self.gs.racer2.rect.left:
-		#		self.gs.racer.centerx -= 15
-		#else:
-		#	if self.gs.racer.rect.left < self.gs.racer2.rect.right:
-		#		self.gs.racer.centerx += 15
-		#self.gs.racer.rect.center = (self.gs.racer.centerx, self.gs.racer.centery)
-		#self.gs.racer2.rect.center = (self.gs.racer2.centerx, self.gs.racer2.centery)
 
 	def checkCrash(self): #check if the car goes off the screen
 		if (self.rect.left < 0):
@@ -135,10 +126,9 @@ class Win(pygame.sprite.Sprite): #Indicate on the screen who won
 		self.gs.powerups[:] = []
 
 		self.font = pygame.font.Font(None, 100)
-		#TODO check this:
-		if (self.gs.isWinner == 1 and self.gs.isHost == True) or (self.gs.isWinner == 2 and self.gs.isHost == False):
-			self.win = 1 
-		elif (self.gs.isWinner == 1 and self.gs.isHost == False) or (self.gs.isWinner == 2 and self.gs.isHost == True):
+		if (self.gs.isWinner == 1): #CHANGED, the host tells you what player won
+			self.win = 1
+		elif (self.gs.isWinner == 2):
 			self.win = 2
 		self.text = "Player " + str(self.win) + " wins!"
 		self.image = self.font.render(self.text,1,GREEN)
@@ -283,7 +273,26 @@ class GameSpace:
 	def makeScore(self):
 		self.score1 = Score(self,self.racer) #to update the score
 		self.score2 = Score(self,self.racer2) #pass in racer to associate score with racer
+	
+	def checkCars(self): #CHANGED
+		#this function makes sure that racers stay in their own same lanes
+		#this function looks to eliminate the race condition if players enter the other players lane
+		#check if overlapped - close not quite there yet
+		if isHost:
+			if self.racer.rect.right > (BOARD_WIDTH/2):
+				self.racer.centerx -= TO_MOVE
+			if self.racer2.rect.left < (BOARD_WIDTH/2): #wrong case
+				self.racer2.centerx += TO_MOVE
+		else:
+			if self.racer2.rect.right > (BOARD_WIDTH/2):
+				self.racer2.centerx -= TO_MOVE
+			if self.racer.rect.left < (BOARD_WIDTH/2): #wrong case 
+				self.racer.centerx += TO_MOVE
+		self.racer.rect.center = (self.racer.centerx, self.racer.centery)
+		self.racer2.rect.center = (self.racer2.centerx, self.racer2.centery)
 
+	
+	
 	def main(self):
 		if self.showStartMenu:
 			self.startMenu()
@@ -370,6 +379,7 @@ class GameSpace:
 			elif event.type == pygame.QUIT: #added to check if clicked the 'x' key
 				reactor.stop() 
 
+		self.checkCars() #check to see if cars are in the same lane CHANGED
 		# 6) send a tick to every game object
 		self.racer.tick()
 		self.racer2.tick()
@@ -401,21 +411,31 @@ class GameSpace:
 			self.obstacles[:] = [] #- make sure that these are cleared 
 			self.powerups[:] = [] 
 		else:
-			self.checkWin()	
+			if isHost: #if host determine winner CHANGED
+				self.checkWin()	
 		pygame.display.flip()
 		#print "lenght of coins: ", len(self.powerups)
 		#print "lenght of obstacles: ", len(self.obstacles)
 		self.checkObstacles() #check obstacles and powerups if on screen
 		self.checkPower()
+		
 
 	def checkWin(self):
-		#check win
-		if(self.racer.power > TO_WIN):
-			self.isWinner = 1
-			self.win = Win(self) 
-		elif(self.racer2.power > TO_WIN):
+		#check win if you are the host, in charge of determining the winner
+		if(self.racer.power >= TO_WIN):
+			self.isWinner = 1 #player 1 wins
+			self.win = Win(self) #create the win object
+		elif(self.racer2.power >= TO_WIN):
 			self.isWinner = 2
 			self.win = Win(self)
+
+		if self.isWinner != None: #CHANGED
+			#make array with score info and who won to send to other player
+			#host controls the score and winner information
+			score_array = list()
+			score_array.append({'player1': self.racer.power, 'player2': self.racer2.power, 'winner': self.isWinner})
+			scores = pickle.dumps(score_array)
+			connections['data'].sendLine('winner\t' + scores) 
 
 
 class PlayerConnection(LineReceiver):
@@ -483,6 +503,16 @@ class PlayerConnection(LineReceiver):
 			print "color: ", data[1]
 			self.gs.p2color = data[1]
 			self.gs.otherracerselected = True
+
+		elif data[0] == 'winner': #CHANGED if you join a game the host will tell you who won
+			print "host declared winner"
+			winner_data = pickle.loads(data[1]) #load data
+			winner_data = winner_data[0]
+			print winner_data
+			self.gs.isWinner = winner_data['winner'] #set winner and scores appropriately
+			self.gs.racer.power = winner_data['player2']
+			self.gs.racer2.power = winner_data['player1']
+			self.gs.win = Win(self.gs) #create the win object - the end game screen
 			
 	def sendLine(self, line):
 		print "sending line"
