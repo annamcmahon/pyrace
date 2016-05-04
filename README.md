@@ -32,7 +32,7 @@ information to their opponent. In a similar fashion, it makes sense that the hos
 players. In our experience, this issue rarely occurs. If it was more prevalent we could change the design of our game to send more 
 messages but we wanted to limit the amount of communication. Therefore, the host will only correct the score if there is a winner. 
 
-TODO: add more description
+In addition, please run the game using a good network connection. Otherwise the game play will not be optimal and the game will run slower. 
 
 ###Exiting the game:
 In any stage of the game the player can exit the game by clicking the exit button or the ESC key. 
